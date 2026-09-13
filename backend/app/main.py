@@ -8,7 +8,7 @@ from .services.parser import parse_function, parse_function_2d
 from .algorithms import run_method
 
 app=FastAPI(title="Numerical Lab", version="1.0.0")
-origins=[x.strip() for x in os.getenv("CORS_ORIGINS","http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003").split(",") if x.strip()]
+origins=[x.strip() for x in os.getenv("CORS_ORIGINS","http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003,https://xz69w72c-3000.use2.devtunnels.ms,https://xz69w72c-3000.use2.devtunnels.ms").split(",") if x.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
