@@ -65,6 +65,7 @@ export default function Instructions() {
           <article><span className="method-tag roots">RAÍCES</span><h3>Newton-Raphson</h3><p>Necesita un valor inicial <code>x0</code> cercano a la raíz.</p></article>
           <article><span className="method-tag optimize">OPTIMIZACIÓN</span><h3>Golden Section · Quadratic</h3><p>Trabajan con un intervalo y permiten elegir entre minimizar o maximizar.</p></article>
           <article><span className="method-tag optimize">2 VARIABLES</span><h3>Random Search</h3><p>Escribe una función con <code>x</code> y <code>y</code>, define ambos rangos y explora la superficie 3D.</p></article>
+          <article><span className="method-tag optimize">2 VARIABLES</span><h3>Lagrange Multipliers</h3><p>Escribe una función objetivo <code>f(x,y)</code> y una restricción <code>g(x,y) = 0</code> para encontrar extremos condicionados.</p></article>
         </div>
         <div className="note"><span aria-hidden="true">i</span><p>La tolerancia debe ser cero o positiva. El máximo de iteraciones debe ser un entero mayor que cero. Cambiar la función o los parámetros limpia el resultado anterior hasta que vuelvas a ejecutar.</p></div>
       </section>

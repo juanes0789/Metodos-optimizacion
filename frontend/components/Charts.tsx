@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { loadDesmos3D, type Desmos3DCalculator, type Desmos3DExpression } from "../lib/desmos3d";
+import { loadDesmos3D, type Desmos3DCalculator } from "../lib/desmos3d";
 import type { NumericalResponse } from "../types";
 
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -24,6 +24,53 @@ type DesmosCalculator = {
 type DesmosApi = {
   GraphingCalculator(element: HTMLElement, options: Record<string, unknown>): DesmosCalculator;
 };
+
+interface Point3D {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+interface SurfaceSeriesPoint {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly text?: string;
+  readonly color?: string;
+}
+
+interface DesmosPanelProps {
+  readonly expressions: readonly DesmosExpression[];
+  readonly viewport?: ReturnType<typeof bounds>;
+}
+
+interface Plotly3DPanelProps {
+  readonly expression: string;
+  readonly point?: Point3D;
+}
+
+interface Desmos3DPanelProps {
+  readonly expression: string;
+  readonly point?: Point3D;
+}
+
+interface LagrangePanelProps {
+  readonly result: NumericalResponse;
+  readonly expression: string;
+}
+
+interface ChartsProps {
+  readonly result: NumericalResponse;
+  readonly expression: string;
+  readonly method?: string;
+}
+
+interface PlotlySurfaceChartProps {
+  readonly expression: string;
+  readonly points?: readonly SurfaceSeriesPoint[];
+  readonly zAxisTitle?: string;
+  readonly resolution?: number;
+}
 
 const DESMOS_SCRIPT = "https://www.desmos.com/api/v1.12/calculator.js?apiKey=";
 
@@ -63,7 +110,7 @@ function bounds(result: NumericalResponse) {
   return { xmin, xmax, ymin: ymin - Math.max(1, (ymax - ymin) * 0.1), ymax: ymax + Math.max(1, (ymax - ymin) * 0.1) };
 }
 
-function DesmosPanel({ expressions, viewport }: { expressions: DesmosExpression[]; viewport?: ReturnType<typeof bounds> }) {
+function DesmosPanel({ expressions, viewport }: Readonly<DesmosPanelProps>) {
   const element = useRef<HTMLDivElement>(null);
   const calculator = useRef<DesmosCalculator | null>(null);
   const [error, setError] = useState("");
@@ -137,53 +184,74 @@ function buildSurfaceData(expression: string, xMin = -2, xMax = 2, yMin = -2, yM
   return { x: xValues, y: yValues, z };
 }
 
-function Plotly3DPanel({ expression, point }: { expression: string; point?: { x: number; y: number; z: number } }) {
+function PlotlySurfaceChart({
+  expression,
+  points = [],
+  zAxisTitle = "z",
+  resolution = 35,
+}: Readonly<PlotlySurfaceChartProps>) {
   const data = useMemo(() => {
-    const { x, y, z } = buildSurfaceData(expression, -2, 2, -2, 2, 28);
+    const { x, y, z } = buildSurfaceData(expression, -2, 2, -2, 2, resolution);
     const series: any[] = [{
       type: "surface",
       x,
       y,
       z,
       colorscale: "Viridis",
-      opacity: 0.9,
+      opacity: 0.85,
       hovertemplate: "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>",
     }];
-    if (point) {
+    if (points.length > 0) {
+      const hasText = points.some((p) => Boolean(p.text));
       series.push({
         type: "scatter3d" as const,
-        mode: "markers" as const,
-        x: [point.x],
-        y: [point.y],
-        z: [point.z],
-        marker: { size: 8, color: "#c74440", symbol: "diamond" },
-        hovertemplate: "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>",
+        mode: hasText ? ("markers+text" as const) : ("markers" as const),
+        x: points.map((p) => p.x),
+        y: points.map((p) => p.y),
+        z: points.map((p) => p.z),
+        text: points.map((p) => p.text ?? ""),
+        textposition: "top center",
+        marker: {
+          size: 8,
+          color: points.map((p) => p.color ?? "#c74440"),
+          symbol: "diamond",
+        },
+        hovertemplate: hasText
+          ? "x: %{x}<br>y: %{y}<br>f(x,y): %{z}<br>%{text}<extra></extra>"
+          : "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>",
       });
     }
     return series;
-  }, [expression, point]);
+  }, [expression, points, resolution]);
 
-  return <Plot
-    data={data}
-    layout={{
-      autosize: true,
-      margin: { l: 0, r: 0, t: 0, b: 0 },
-      paper_bgcolor: "#ffffff",
-      plot_bgcolor: "#ffffff",
-      scene: {
-        xaxis: { title: { text: "x" }, backgroundcolor: "#f8fafc" },
-        yaxis: { title: { text: "y" }, backgroundcolor: "#f8fafc" },
-        zaxis: { title: { text: "z" }, backgroundcolor: "#f8fafc" },
-        camera: { eye: { x: 1.4, y: 1.4, z: 1.2 } },
-      },
-    }}
-    config={{ responsive: true, displaylogo: false }}
-    useResizeHandler
-    style={{ width: "100%", height: "430px" }}
-  />;
+  return (
+    <Plot
+      data={data}
+      layout={{
+        autosize: true,
+        margin: { l: 0, r: 0, t: 0, b: 0 },
+        paper_bgcolor: "#ffffff",
+        plot_bgcolor: "#ffffff",
+        scene: {
+          xaxis: { title: { text: "x" }, backgroundcolor: "#f8fafc" },
+          yaxis: { title: { text: "y" }, backgroundcolor: "#f8fafc" },
+          zaxis: { title: { text: zAxisTitle }, backgroundcolor: "#f8fafc" },
+          camera: { eye: { x: 1.4, y: 1.4, z: 1.2 } },
+        },
+      }}
+      config={{ responsive: true, displaylogo: false }}
+      useResizeHandler
+      style={{ width: "100%", height: "430px" }}
+    />
+  );
 }
 
-function Desmos3DPanel({ expression, point }: { expression: string; point?: { x: number; y: number; z: number } }) {
+function Plotly3DPanel({ expression, point }: Readonly<Plotly3DPanelProps>) {
+  const points = useMemo(() => (point ? [{ x: point.x, y: point.y, z: point.z, color: "#c74440" }] : []), [point]);
+  return <PlotlySurfaceChart expression={expression} points={points} zAxisTitle="z" resolution={28} />;
+}
+
+function Desmos3DPanel({ expression, point }: Readonly<Desmos3DPanelProps>) {
   const element = useRef<HTMLDivElement>(null);
   const calculator = useRef<Desmos3DCalculator | null>(null);
   const [ready, setReady] = useState(false);
@@ -230,20 +298,51 @@ function Desmos3DPanel({ expression, point }: { expression: string; point?: { x:
   return <div className="desmos-canvas" ref={element} />;
 }
 
-export function Charts({ result, expression, method }: { result: NumericalResponse; expression: string; method?: string }) {
-  const functionLatex = latexFunction(expression);
-  const lastIndex = result.x_history.length - 1;
-  const lastX = result.x_history[lastIndex];
-  const lastY = result.table[lastIndex]?.fx ?? result.final_fx ?? 0;
-  const firstRow = result.table[0] ?? {};
+function getPointColor(type?: string): string {
+  if (type === "Máximo") {
+    return "#c74440";
+  }
+  if (type === "Mínimo") {
+    return "#2d70b3";
+  }
+  return "#f59e0b";
+}
+
+function LagrangePanel({ result, expression }: Readonly<LagrangePanelProps>) {
+  const points = useMemo(() => {
+    return result.table
+      .filter((r: any) => typeof r.x === "number" && typeof r.y === "number" && typeof r.f_xy === "number")
+      .map((p: any) => ({
+        x: p.x,
+        y: p.y,
+        z: p.f_xy,
+        text: p.type ?? "",
+        color: getPointColor(p.type),
+      }));
+  }, [result.table]);
+
+  return <PlotlySurfaceChart expression={expression} points={points} zAxisTitle="f(x,y)" resolution={40} />;
+}
+
+function extractInitialBounds(firstRow: Record<string, unknown> = {}): Array<readonly [string, number]> {
   const initialBounds: Array<readonly [string, number]> = [];
-  if (typeof firstRow.a === "number") initialBounds.push(["a", firstRow.a]);
-  if (typeof firstRow.b === "number") initialBounds.push(["b", firstRow.b]);
-  if (typeof firstRow.xl === "number") initialBounds.push(["xl", firstRow.xl]);
-  if (typeof firstRow.xu === "number") initialBounds.push(["xu", firstRow.xu]);
-  const iterationCount = result.errors.length;
-  const xTickStep = Math.max(1, Math.ceil(iterationCount / 12));
-  const functionExpressions: DesmosExpression[] = [
+  const keys = ["a", "b", "xl", "xu"] as const;
+  for (const key of keys) {
+    if (typeof firstRow[key] === "number") {
+      initialBounds.push([key, firstRow[key] as number]);
+    }
+  }
+  return initialBounds;
+}
+
+function buildDesmosExpressions(
+  expression: string,
+  initialBounds: Array<readonly [string, number]>,
+  lastX: number | undefined,
+  lastY: number
+): DesmosExpression[] {
+  const functionLatex = latexFunction(expression);
+  const expressions: DesmosExpression[] = [
     { id: "function", latex: `f(x)=${functionLatex}`, color: "#2d70b3" },
     { id: "axis", latex: "y=0", color: "#666666" },
     ...initialBounds.map(([name, value]) => ({
@@ -252,48 +351,122 @@ export function Charts({ result, expression, method }: { result: NumericalRespon
       color: "#f59e0b",
       lineStyle: "DASHED",
     })),
-    ...(lastX === undefined ? [] : [{
+  ];
+
+  if (lastX !== undefined) {
+    expressions.push({
       id: "final-approximation",
       latex: `(${lastX},${lastY})`,
       color: "#c74440",
-    }]),
-  ];
-  const view = bounds(result);
-  const point = typeof result.final_x === "number" && typeof result.final_fx === "number" ? { x: Number(result.final_x), y: Number((result.table.at(-1)?.best_y ?? result.table.at(-1)?.y ?? 0) ?? 0), z: Number(result.final_fx) } : undefined;
-  const random3dPoint = typeof result.table.at(-1)?.best_x === "number" && typeof result.table.at(-1)?.best_y === "number" && typeof result.table.at(-1)?.best_fx === "number"
-    ? { x: Number(result.table.at(-1)?.best_x), y: Number(result.table.at(-1)?.best_y), z: Number(result.table.at(-1)?.best_fx) }
-    : undefined;
+    });
+  }
 
-  return <div className="charts">
-    <div className="card">
-      <h2>{method === "random-search" ? "Superficie 3D" : "Función y aproximaciones"}</h2>
-      <p className="chart-hint">{method === "random-search" ? "Superficie objetivo y mejor punto encontrado." : "Arrastra para desplazar y usa la rueda para acercar o alejar."}</p>
-      {method === "random-search" ? <Desmos3DPanel expression={expression} point={random3dPoint} /> : <DesmosPanel expressions={functionExpressions} viewport={view} />}
+  return expressions;
+}
+
+function extractRandom3DPoint(result: NumericalResponse): Point3D | undefined {
+  const lastRow = result.table.at(-1);
+  if (
+    typeof lastRow?.best_x === "number" &&
+    typeof lastRow?.best_y === "number" &&
+    typeof lastRow?.best_fx === "number"
+  ) {
+    return {
+      x: Number(lastRow.best_x),
+      y: Number(lastRow.best_y),
+      z: Number(lastRow.best_fx),
+    };
+  }
+  return undefined;
+}
+
+function getChartTitle(method?: string): string {
+  if (method === "random-search" || method === "lagrange-multipliers") {
+    return "Superficie 3D";
+  }
+  return "Función y aproximaciones";
+}
+
+function getChartHintText(method?: string): string {
+  if (method === "lagrange-multipliers") {
+    return "Superficie objetivo y puntos críticos encontrados (máximos en rojo, mínimos en azul).";
+  }
+  if (method === "random-search") {
+    return "Superficie objetivo y mejor punto encontrado.";
+  }
+  return "Arrastra para desplazar y usa la rueda para acercar o alejar.";
+}
+
+function renderMainChartPanel(
+  method: string | undefined,
+  result: NumericalResponse,
+  expression: string,
+  random3dPoint: Point3D | undefined,
+  functionExpressions: DesmosExpression[],
+  view: ReturnType<typeof bounds>
+) {
+  if (method === "lagrange-multipliers") {
+    return <LagrangePanel result={result} expression={expression} />;
+  }
+  if (method === "random-search") {
+    return <Desmos3DPanel expression={expression} point={random3dPoint} />;
+  }
+  return <DesmosPanel expressions={functionExpressions} viewport={view} />;
+}
+
+export function Charts({ result, expression, method }: Readonly<ChartsProps>) {
+  const lastIndex = result.x_history.length - 1;
+  const lastX = result.x_history[lastIndex];
+  const lastY = result.table[lastIndex]?.fx ?? result.final_fx ?? 0;
+  const firstRow = (result.table[0] ?? {}) as Record<string, unknown>;
+
+  const initialBounds = extractInitialBounds(firstRow);
+  const functionExpressions = buildDesmosExpressions(expression, initialBounds, lastX, lastY);
+  const view = bounds(result);
+  const random3dPoint = extractRandom3DPoint(result);
+
+  const iterationCount = result.errors.length;
+  const xTickStep = Math.max(1, Math.ceil(iterationCount / 12));
+  const chartTitle = getChartTitle(method);
+  const chartHint = getChartHintText(method);
+  const mainPanel = renderMainChartPanel(method, result, expression, random3dPoint, functionExpressions, view);
+
+  return (
+    <div className="charts">
+      <div className="card">
+        <h2>{chartTitle}</h2>
+        <p className="chart-hint">{chartHint}</p>
+        {mainPanel}
+      </div>
+      <div className="card">
+        <h2>Caída del error</h2>
+        <p className="chart-hint">El error absoluto debe descender hacia cero a medida que avanza el método.</p>
+        <Plot
+          data={[{
+            x: result.errors.map((_, index) => index + 1),
+            y: result.errors,
+            type: "scatter",
+            mode: "lines+markers",
+            line: { color: "#6042a6", width: 3 },
+            marker: { color: "#c74440", size: 7 },
+            hovertemplate: "Iteración %{x}<br>Error %{y:.4e}<extra></extra>",
+          }]}
+          layout={{
+            autosize: true,
+            height: 420,
+            margin: { l: 65, r: 20, t: 20, b: 55 },
+            paper_bgcolor: "#ffffff",
+            plot_bgcolor: "#ffffff",
+            font: { color: "#202124" },
+            xaxis: { title: { text: "Iteración" }, dtick: xTickStep, tickangle: 0, automargin: true, gridcolor: "#e5e7eb", zerolinecolor: "#9ca3af" },
+            yaxis: { title: { text: "Error absoluto" }, rangemode: "tozero", gridcolor: "#e5e7eb", zerolinecolor: "#9ca3af" },
+            showlegend: false,
+          }}
+          config={{ responsive: true, displaylogo: false, modeBarButtonsToRemove: ["lasso2d", "select2d"] }}
+          useResizeHandler
+          style={{ width: "100%" }}
+        />
+      </div>
     </div>
-    <div className="card"><h2>Caída del error</h2><p className="chart-hint">El error absoluto debe descender hacia cero a medida que avanza el método.</p><Plot
-      data={[{
-        x: result.errors.map((_, index) => index + 1),
-        y: result.errors,
-        type: "scatter",
-        mode: "lines+markers",
-        line: { color: "#6042a6", width: 3 },
-        marker: { color: "#c74440", size: 7 },
-        hovertemplate: "Iteración %{x}<br>Error %{y:.4e}<extra></extra>",
-      }]}
-      layout={{
-        autosize: true,
-        height: 420,
-        margin: { l: 65, r: 20, t: 20, b: 55 },
-        paper_bgcolor: "#ffffff",
-        plot_bgcolor: "#ffffff",
-        font: { color: "#202124" },
-        xaxis: { title: { text: "Iteración" }, dtick: xTickStep, tickangle: 0, automargin: true, gridcolor: "#e5e7eb", zerolinecolor: "#9ca3af" },
-        yaxis: { title: { text: "Error absoluto" }, rangemode: "tozero", gridcolor: "#e5e7eb", zerolinecolor: "#9ca3af" },
-        showlegend: false,
-      }}
-      config={{ responsive: true, displaylogo: false, modeBarButtonsToRemove: ["lasso2d", "select2d"] }}
-      useResizeHandler
-      style={{ width: "100%" }}
-    /></div>
-  </div>;
+  );
 }

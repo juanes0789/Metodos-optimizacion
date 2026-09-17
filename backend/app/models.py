@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class RunRequest(BaseModel):
     function: str = Field(min_length=1, max_length=300)
-    params: dict[str, float | int]
+    params: dict[str, float | int | str]
 
 class NumericalResponse(BaseModel):
     converged: bool

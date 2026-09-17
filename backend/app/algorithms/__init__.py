@@ -1,3 +1,3 @@
-from .methods import run_method
+from .methods import run_method, lagrange_multipliers
 
-__all__ = ["run_method"]
+__all__ = ["run_method", "lagrange_multipliers"]

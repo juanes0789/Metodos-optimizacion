@@ -5,7 +5,7 @@ import sympy as sp
 import numpy as np
 from .models import RunRequest, NumericalResponse
 from .services.parser import parse_function, parse_function_2d
-from .algorithms import run_method
+from .algorithms import run_method, lagrange_multipliers
 
 app=FastAPI(title="Numerical Lab", version="1.0.0")
 origins=[x.strip() for x in os.getenv("CORS_ORIGINS","http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003,https://xz69w72c-3000.use2.devtunnels.ms,https://xz69w72c-3000.use2.devtunnels.ms").split(",") if x.strip()]
@@ -20,13 +20,25 @@ app.add_middleware(
 
 @app.get("/api/v1/methods")
 def methods():
-    return [{"id":x,"name":x.replace("-"," ").title()} for x in ("bisection","false-position","golden-section","quadratic-interpolation","newton-optimization","newton-raphson","random-search")]
+    return [{"id":x,"name":x.replace("-"," ").title()} for x in ("bisection","false-position","golden-section","quadratic-interpolation","newton-optimization","newton-raphson","random-search","lagrange-multipliers")]
 
 @app.post("/api/v1/methods/{method}",response_model=NumericalResponse)
 def execute(method:str, request:RunRequest):
     try:
         p=request.params
         if p.get("tolerance",1e-6)<0 or p.get("max_iterations",1)<=0: raise ValueError("La tolerancia no puede ser negativa y las iteraciones deben ser positivas")
+
+        if method == "lagrange-multipliers":
+            constraint_str = str(p.get("constraint", ""))
+            if not constraint_str: raise ValueError("Se requiere una restricción g(x,y)=0")
+            fn_2d, f_sympy, x_sym, y_sym = parse_function_2d(request.function)
+            _, g_sympy, _, _ = parse_function_2d(constraint_str)
+            result = lagrange_multipliers(f_sympy, g_sympy, x_sym, y_sym)
+            grid_x = np.linspace(-2, 2, 200)
+            grid_y = np.linspace(-2, 2, 200)
+            xs, ys = np.meshgrid(grid_x, grid_y)
+            zs = np.array([[float(fn_2d(float(xv), float(yv))) for xv, yv in zip(xrow, yrow)] for xrow, yrow in zip(xs, ys)])
+            return {**result.__dict__, "function_x": grid_x.tolist(), "function_y": zs.ravel().tolist()}
 
         if method == "random-search" and ("y_min" in p or "y_max" in p):
             fn,expr,x,y=parse_function_2d(request.function)
