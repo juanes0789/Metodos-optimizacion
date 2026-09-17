@@ -52,11 +52,7 @@ interface Plotly3DPanelProps {
 interface Desmos3DPanelProps {
   readonly expression: string;
   readonly point?: Point3D;
-}
-
-interface LagrangePanelProps {
-  readonly result: NumericalResponse;
-  readonly expression: string;
+  readonly points?: readonly SurfaceSeriesPoint[];
 }
 
 interface ChartsProps {
@@ -92,6 +88,7 @@ function loadDesmos(): Promise<DesmosApi> {
 
 function latexFunction(expression: string): string {
   return expression
+    .replace(/([xy])([2-9]\d*)\b/gi, "$1^$2")
     .replace(/\bseno?\s*\(/gi, "sin(")
     .replace(/\bsen\s*\(/gi, "sin(")
     .replace(/\bln\s*\(/gi, "log(")
@@ -152,6 +149,7 @@ function DesmosPanel({ expressions, viewport }: Readonly<DesmosPanelProps>) {
 
 function normalizeJsExpression(expression: string): string {
   let next = expression.trim();
+  next = next.replace(/([xy])([2-9]\d*)\b/gi, "$1**$2");
   next = next.replace(/\^/g, "**");
   next = next.replace(/\b(?:sen|seno)\s*\(/gi, "sin(");
   next = next.replace(/\bln\s*\(/gi, "log(");
@@ -251,7 +249,7 @@ function Plotly3DPanel({ expression, point }: Readonly<Plotly3DPanelProps>) {
   return <PlotlySurfaceChart expression={expression} points={points} zAxisTitle="z" resolution={28} />;
 }
 
-function Desmos3DPanel({ expression, point }: Readonly<Desmos3DPanelProps>) {
+function Desmos3DPanel({ expression, point, points = [] }: Readonly<Desmos3DPanelProps>) {
   const element = useRef<HTMLDivElement>(null);
   const calculator = useRef<Desmos3DCalculator | null>(null);
   const [ready, setReady] = useState(false);
@@ -288,11 +286,16 @@ function Desmos3DPanel({ expression, point }: Readonly<Desmos3DPanelProps>) {
 
     const surfaceLatex = expression.replace(/\*\*/g, "^").replace(/\s*\*\s*/g, " ");
     current.setExpression({ id: "surface", latex: `z=${surfaceLatex}`, color: "#2d70b3", opacity: 0.85 });
-    if (point) {
-      current.setExpression({ id: "point", latex: `(${point.x}, ${point.y}, ${point.z})`, color: "#c74440" });
-    }
+    const markers = point ? [{ ...point, color: "#c74440" }, ...points] : points;
+    markers.forEach((marker, index) => {
+      current.setExpression({
+        id: `point-${index}`,
+        latex: `(${marker.x}, ${marker.y}, ${marker.z})`,
+        color: marker.color ?? "#c74440",
+      });
+    });
     current.setCameraPosition?.({ x: 1, y: 1, z: 1.5 });
-  }, [expression, point, ready]);
+  }, [expression, point, points, ready]);
 
   if (error) return <div className="graph-error">No se pudo cargar la gráfica 3D de Desmos: {error}</div>;
   return <div className="desmos-canvas" ref={element} />;
@@ -308,20 +311,25 @@ function getPointColor(type?: string): string {
   return "#f59e0b";
 }
 
-function LagrangePanel({ result, expression }: Readonly<LagrangePanelProps>) {
+function extractLagrange3DPoints(result: NumericalResponse): SurfaceSeriesPoint[] {
+  return result.table
+    .map((row) => row as Record<string, unknown>)
+    .filter((row) => typeof row.x === "number" && typeof row.y === "number" && typeof row.f_xy === "number")
+    .map((row) => ({
+      x: row.x as number,
+      y: row.y as number,
+      z: row.f_xy as number,
+      text: typeof row.type === "string" ? row.type : "",
+      color: getPointColor(typeof row.type === "string" ? row.type : undefined),
+    }));
+}
+
+function LagrangePanel({ result, expression }: { result: NumericalResponse; expression: string }) {
   const points = useMemo(() => {
-    return result.table
-      .filter((r: any) => typeof r.x === "number" && typeof r.y === "number" && typeof r.f_xy === "number")
-      .map((p: any) => ({
-        x: p.x,
-        y: p.y,
-        z: p.f_xy,
-        text: p.type ?? "",
-        color: getPointColor(p.type),
-      }));
+    return extractLagrange3DPoints(result);
   }, [result.table]);
 
-  return <PlotlySurfaceChart expression={expression} points={points} zAxisTitle="f(x,y)" resolution={40} />;
+  return <Desmos3DPanel expression={expression} points={points} />;
 }
 
 function extractInitialBounds(firstRow: Record<string, unknown> = {}): Array<readonly [string, number]> {
