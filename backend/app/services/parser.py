@@ -23,6 +23,8 @@ def _normalize_expression(source: str) -> str:
     if not expr:
         raise ValueError("La función no puede estar vacía")
 
+    expr = re.sub(r'([xy])([2-9]\d*)\b', r'\1**\2', expr, flags=re.IGNORECASE)
+
     for idx, func_name in enumerate(sorted(ALLOWED.keys(), key=len, reverse=True)):
         placeholder = f"⟦F{idx}⟧"
         expr = re.sub(rf"{re.escape(func_name)}(?=\()", placeholder, expr)

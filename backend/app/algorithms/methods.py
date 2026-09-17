@@ -154,7 +154,7 @@ def lagrange_multipliers(f_expr, g_expr, x_sym, y_sym):
         xv = float(sol[x_sym]); yv = float(sol[y_sym]); lv = float(sol[lam])
         fv = float(f_expr.subs({x_sym: sol[x_sym], y_sym: sol[y_sym]}))
         x_history.append(xv)
-        table.append({"point": idx + 1, "x": round(xv, 6), "y": round(yv, 6), "f_xy": round(fv, 6), "lambda": round(lv, 6)})
+        table.append({"point": idx + 1, "x": round(xv, 6), "y": round(yv, 6), "f_xy": fv, "lambda": round(lv, 6)})
         if best_max is None or fv > best_max[2]: best_max = (xv, yv, fv)
         if best_min is None or fv < best_min[2]: best_min = (xv, yv, fv)
     for row in table:
