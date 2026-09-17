@@ -53,4 +53,3 @@ export function loadDesmos3D(): Promise<Desmos3DApi> {
     }
   });
 }
-

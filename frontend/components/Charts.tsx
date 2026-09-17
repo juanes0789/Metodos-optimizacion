@@ -53,12 +53,14 @@ interface Desmos3DPanelProps {
   readonly expression: string;
   readonly point?: Point3D;
   readonly points?: readonly SurfaceSeriesPoint[];
+  readonly constraint?: string;
 }
 
 interface ChartsProps {
   readonly result: NumericalResponse;
   readonly expression: string;
   readonly method?: string;
+  readonly constraint?: string;
 }
 
 interface PlotlySurfaceChartProps {
@@ -249,7 +251,7 @@ function Plotly3DPanel({ expression, point }: Readonly<Plotly3DPanelProps>) {
   return <PlotlySurfaceChart expression={expression} points={points} zAxisTitle="z" resolution={28} />;
 }
 
-function Desmos3DPanel({ expression, point, points = [] }: Readonly<Desmos3DPanelProps>) {
+function Desmos3DPanel({ expression, point, points = [], constraint }: Readonly<Desmos3DPanelProps>) {
   const element = useRef<HTMLDivElement>(null);
   const calculator = useRef<Desmos3DCalculator | null>(null);
   const [ready, setReady] = useState(false);
@@ -286,6 +288,10 @@ function Desmos3DPanel({ expression, point, points = [] }: Readonly<Desmos3DPane
 
     const surfaceLatex = expression.replace(/\*\*/g, "^").replace(/\s*\*\s*/g, " ");
     current.setExpression({ id: "surface", latex: `z=${surfaceLatex}`, color: "#2d70b3", opacity: 0.85 });
+    if (constraint) {
+      const constraintLatex = constraint.replace(/\*\*/g, "^").replace(/\s*\*\s*/g, " ");
+      current.setExpression({ id: "constraint", latex: `z=${constraintLatex}`, color: "#6042a6", opacity: 0.45 });
+    }
     const markers = point ? [{ ...point, color: "#c74440" }, ...points] : points;
     markers.forEach((marker, index) => {
       current.setExpression({
@@ -295,7 +301,7 @@ function Desmos3DPanel({ expression, point, points = [] }: Readonly<Desmos3DPane
       });
     });
     current.setCameraPosition?.({ x: 1, y: 1, z: 1.5 });
-  }, [expression, point, points, ready]);
+  }, [constraint, expression, point, points, ready]);
 
   if (error) return <div className="graph-error">No se pudo cargar la gráfica 3D de Desmos: {error}</div>;
   return <div className="desmos-canvas" ref={element} />;
@@ -324,12 +330,12 @@ function extractLagrange3DPoints(result: NumericalResponse): SurfaceSeriesPoint[
     }));
 }
 
-function LagrangePanel({ result, expression }: { result: NumericalResponse; expression: string }) {
+function LagrangePanel({ result, expression, constraint }: { result: NumericalResponse; expression: string; constraint?: string }) {
   const points = useMemo(() => {
     return extractLagrange3DPoints(result);
   }, [result.table]);
 
-  return <Desmos3DPanel expression={expression} points={points} />;
+  return <Desmos3DPanel expression={expression} constraint={constraint} points={points} />;
 }
 
 function extractInitialBounds(firstRow: Record<string, unknown> = {}): Array<readonly [string, number]> {
@@ -409,12 +415,13 @@ function renderMainChartPanel(
   method: string | undefined,
   result: NumericalResponse,
   expression: string,
+  constraint: string | undefined,
   random3dPoint: Point3D | undefined,
   functionExpressions: DesmosExpression[],
   view: ReturnType<typeof bounds>
 ) {
   if (method === "lagrange-multipliers") {
-    return <LagrangePanel result={result} expression={expression} />;
+    return <LagrangePanel result={result} expression={expression} constraint={constraint} />;
   }
   if (method === "random-search") {
     return <Desmos3DPanel expression={expression} point={random3dPoint} />;
@@ -422,7 +429,7 @@ function renderMainChartPanel(
   return <DesmosPanel expressions={functionExpressions} viewport={view} />;
 }
 
-export function Charts({ result, expression, method }: Readonly<ChartsProps>) {
+export function Charts({ result, expression, method, constraint }: Readonly<ChartsProps>) {
   const lastIndex = result.x_history.length - 1;
   const lastX = result.x_history[lastIndex];
   const lastY = result.table[lastIndex]?.fx ?? result.final_fx ?? 0;
@@ -437,7 +444,7 @@ export function Charts({ result, expression, method }: Readonly<ChartsProps>) {
   const xTickStep = Math.max(1, Math.ceil(iterationCount / 12));
   const chartTitle = getChartTitle(method);
   const chartHint = getChartHintText(method);
-  const mainPanel = renderMainChartPanel(method, result, expression, random3dPoint, functionExpressions, view);
+  const mainPanel = renderMainChartPanel(method, result, expression, constraint, random3dPoint, functionExpressions, view);
 
   return (
     <div className="charts">
