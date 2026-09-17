@@ -139,6 +139,32 @@ def random_search_2d(fn:Callable[[float,float],float],x_min:float,x_max:float,y_
     return _result(True,"Búsqueda completada",best[0],best[2],errors,hist,table)
 
 
+def lagrange_multipliers(f_expr, g_expr, x_sym, y_sym):
+    """Solve constrained optimization using Lagrange multipliers (symbolic)."""
+    import sympy as sp
+    lam = sp.Symbol("lambda")
+    f_x, f_y = sp.diff(f_expr, x_sym), sp.diff(f_expr, y_sym)
+    g_x, g_y = sp.diff(g_expr, x_sym), sp.diff(g_expr, y_sym)
+    system = [f_x - lam * g_x, f_y - lam * g_y, g_expr]
+    solutions = sp.solve(system, [x_sym, y_sym, lam], dict=True)
+    if not solutions:
+        return _result(False, "No se encontraron puntos críticos", None, None, [], [], [])
+    table = []; x_history = []; best_max = None; best_min = None
+    for idx, sol in enumerate(solutions):
+        xv = float(sol[x_sym]); yv = float(sol[y_sym]); lv = float(sol[lam])
+        fv = float(f_expr.subs({x_sym: sol[x_sym], y_sym: sol[y_sym]}))
+        x_history.append(xv)
+        table.append({"point": idx + 1, "x": round(xv, 6), "y": round(yv, 6), "f_xy": round(fv, 6), "lambda": round(lv, 6)})
+        if best_max is None or fv > best_max[2]: best_max = (xv, yv, fv)
+        if best_min is None or fv < best_min[2]: best_min = (xv, yv, fv)
+    for row in table:
+        if abs(row["f_xy"] - best_max[2]) < 1e-10: row["type"] = "Máximo"
+        elif abs(row["f_xy"] - best_min[2]) < 1e-10: row["type"] = "Mínimo"
+        else: row["type"] = "Punto crítico"
+    msg = f"Se encontraron {len(solutions)} puntos críticos. Máximo: f={best_max[2]:.6f} en ({best_max[0]:.6f}, {best_max[1]:.6f}). Mínimo: f={best_min[2]:.6f} en ({best_min[0]:.6f}, {best_min[1]:.6f})"
+    return _result(True, msg, best_max[0], best_max[2], [], x_history, table)
+
+
 def run_method(name:str, fn:Fn, params:dict[str,float|int], derivative:Fn|None=None, second:Fn|None=None)->NumericalResult:
     if name == "random-search":
         if "y_min" in params and "y_max" in params:

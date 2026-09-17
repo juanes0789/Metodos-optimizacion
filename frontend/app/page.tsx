@@ -5,8 +5,8 @@ import {IterationTable} from "../components/IterationTable";
 import {Charts} from "../components/Charts";
 import type {NumericalResponse} from "../types";
 
-const methods=[["bisection","Bisection","Root finding"],["false-position","False Position","Root finding"],["golden-section","Golden Section","Minimization"],["quadratic-interpolation","Quadratic Interpolation","Minimization"],["newton-optimization","Newton Optimization","Minimization"],["newton-raphson","Newton-Raphson","Root finding"],["random-search","Random Search","Minimization"]];
-const defaults:Record<string,Record<string,string>>={bisection:{a:"1",b:"2",tolerance:"1e-6",max_iterations:"100"}, "false-position":{a:"1",b:"2",tolerance:"1e-6",max_iterations:"100"},"golden-section":{a:"0",b:"10",maximize:"0",tolerance:"1e-6",max_iterations:"100"},"quadratic-interpolation":{x0:"0",x1:"1",x2:"4",maximize:"1",tolerance:"1e-6",max_iterations:"100"},"newton-optimization":{x0:"5",tolerance:"1e-6",max_iterations:"100"},"newton-raphson":{x0:"1.5",tolerance:"1e-6",max_iterations:"100"},"random-search":{x_min:"-2",x_max:"2",y_min:"1",y_max:"3",maximize:"1",max_iterations:"100"}};
+const methods=[["bisection","Bisection","Root finding"],["false-position","False Position","Root finding"],["golden-section","Golden Section","Minimization"],["quadratic-interpolation","Quadratic Interpolation","Minimization"],["newton-optimization","Newton Optimization","Minimization"],["newton-raphson","Newton-Raphson","Root finding"],["random-search","Random Search","Minimization"],["lagrange-multipliers","Lagrange Multipliers","Constrained optimization"]];
+const defaults:Record<string,Record<string,string>>={bisection:{a:"1",b:"2",tolerance:"1e-6",max_iterations:"100"}, "false-position":{a:"1",b:"2",tolerance:"1e-6",max_iterations:"100"},"golden-section":{a:"0",b:"10",maximize:"0",tolerance:"1e-6",max_iterations:"100"},"quadratic-interpolation":{x0:"0",x1:"1",x2:"4",maximize:"1",tolerance:"1e-6",max_iterations:"100"},"newton-optimization":{x0:"5",tolerance:"1e-6",max_iterations:"100"},"newton-raphson":{x0:"1.5",tolerance:"1e-6",max_iterations:"100"},"random-search":{x_min:"-2",x_max:"2",y_min:"1",y_max:"3",maximize:"1",max_iterations:"100"},"lagrange-multipliers":{constraint:"x**2 + 2*y**2 - 1",max_iterations:"1"}};
 export default function Home(){
  const [method,setMethod]=useState("bisection");
  const [fn,setFn]=useState("x**3 - x - 2");
@@ -16,7 +16,7 @@ export default function Home(){
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState("");
 
- const select=(m:string)=>{setMethod(m);setParams(defaults[m]);setResult(null);setError("")};
+ const select=(m:string)=>{setMethod(m);setParams(defaults[m]);setResult(null);setError("");if(m==="lagrange-multipliers")setFn("3*x - 2*y");};
  const fields=Object.keys(params).filter(k=>k!=="tolerance"&&k!=="max_iterations"&&k!=="maximize");
 
  const run=async()=>{
@@ -24,7 +24,7 @@ export default function Home(){
    setError("");
    try {
      const expression = fn.trim();
-     const nextResult = await runMethod(method, expression, Object.fromEntries(Object.entries(params).map(([k,v])=>[k,Number(v)])));
+      const nextResult = await runMethod(method, expression, Object.fromEntries(Object.entries(params).map(([k,v])=>[k,k==="constraint"?v:Number(v)])));
      setSubmittedFn(expression);
      setResult(nextResult);
    } catch (e) {
@@ -47,7 +47,7 @@ export default function Home(){
        <div className="card config-card"><div className="config-heading"><div><span className="section-number">02 · CONFIGURA</span><h2>{selectedMethod?.[1]}</h2><p>{selectedMethod?.[2]} · Define la función y los parámetros del experimento.</p></div><span className="active-pill">ACTIVO</span></div>
          <label className="function-field"><span>Función objetivo</span><input value={fn} onChange={e=>{setFn(e.target.value);setResult(null);setError("")}} placeholder="Ejemplo: sen(x) + x**2" /><small>Usa <code>**</code> para potencias · <a href="/instructions">Consulta la sintaxis</a></small></label>
          <div className="parameter-heading"><span>Parámetros</span><span>Los valores se pueden ajustar antes de ejecutar</span></div>
-         <div className="grid">{fields.map(k=><label key={k}>{k}<input type="number" value={params[k]} onChange={e=>{setParams({...params,[k]:e.target.value});setResult(null);setError("")}}/></label>)}{(method==="golden-section"||method==="quadratic-interpolation"||method==="random-search")&&<label>Objetivo<select value={params.maximize} onChange={e=>{setParams({...params,maximize:e.target.value});setResult(null);setError("")}}><option value="0">Minimizar</option><option value="1">Maximizar</option></select></label>}{method!=="random-search"&&<label>tolerance<input type="number" value={params.tolerance??"1e-6"} onChange={e=>{setParams({...params,tolerance:e.target.value});setResult(null);setError("")}}/></label>}<label>max iterations<input type="number" value={params.max_iterations??"100"} onChange={e=>{setParams({...params,max_iterations:e.target.value});setResult(null);setError("")}}/></label></div>
+         <div className="grid">{fields.map(k=><label key={k}>{k}<input type={k==="constraint"?"text":"number"} value={params[k]} onChange={e=>{setParams({...params,[k]:e.target.value});setResult(null);setError("")}}/></label>)}{(method==="golden-section"||method==="quadratic-interpolation"||method==="random-search")&&<label>Objetivo<select value={params.maximize} onChange={e=>{setParams({...params,maximize:e.target.value});setResult(null);setError("")}}><option value="0">Minimizar</option><option value="1">Maximizar</option></select></label>}{method!=="random-search"&&method!=="lagrange-multipliers"&&<label>tolerance<input type="number" value={params.tolerance??"1e-6"} onChange={e=>{setParams({...params,tolerance:e.target.value});setResult(null);setError("")}}/></label>}{method!=="lagrange-multipliers"&&<label>max iterations<input type="number" value={params.max_iterations??"100"} onChange={e=>{setParams({...params,max_iterations:e.target.value});setResult(null);setError("")}}/></label>}</div>
          <div className="run-row"><button className="run" disabled={loading} onClick={run}>{loading?"Running…":"Run method"}<span>→</span></button><span className="run-hint">El resultado aparecerá debajo de la configuración.</span></div>{error&&<p className="error">{error}</p>}
        </div>
        {result&&<><div className={"result "+(result.converged?"ok":"warn")}><div><small>{result.converged?"CONVERGED":"MAXIMUM ITERATIONS"}</small><strong>{result.final_x?.toPrecision(10)??"—"}</strong></div><div><small>f(x)</small><strong>{result.final_fx?.toExponential(3)??"—"}</strong></div><div><small>Iterations</small><strong>{result.iterations}</strong></div></div><div className="results-heading"><div><span className="section-number">03 · RESULTADOS</span><h2>Lectura del experimento</h2></div><span>Función ejecutada: <code>{submittedFn}</code></span></div><Charts result={result} expression={submittedFn} method={method}/><IterationTable rows={result.table}/></>}

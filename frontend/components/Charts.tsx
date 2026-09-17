@@ -230,6 +230,57 @@ function Desmos3DPanel({ expression, point }: { expression: string; point?: { x:
   return <div className="desmos-canvas" ref={element} />;
 }
 
+function LagrangePanel({ result, expression }: { result: NumericalResponse; expression: string }) {
+  const data = useMemo(() => {
+    const { x, y, z } = buildSurfaceData(expression, -2, 2, -2, 2, 40);
+    const series: any[] = [{
+      type: "surface",
+      x, y, z,
+      colorscale: "Viridis",
+      opacity: 0.85,
+      hovertemplate: "x: %{x}<br>y: %{y}<br>z: %{z}<extra></extra>",
+    }];
+    const pts = result.table.filter((r: any) => typeof r.x === "number" && typeof r.y === "number" && typeof r.f_xy === "number");
+    if (pts.length > 0) {
+      series.push({
+        type: "scatter3d" as const,
+        mode: "markers+text" as const,
+        x: pts.map((p: any) => p.x),
+        y: pts.map((p: any) => p.y),
+        z: pts.map((p: any) => p.f_xy),
+        text: pts.map((p: any) => p.type ?? ""),
+        textposition: "top center",
+        marker: {
+          size: 8,
+          color: pts.map((p: any) => p.type === "Máximo" ? "#c74440" : p.type === "Mínimo" ? "#2d70b3" : "#f59e0b"),
+          symbol: "diamond",
+        },
+        hovertemplate: "x: %{x}<br>y: %{y}<br>f(x,y): %{z}<br>%{text}<extra></extra>",
+      });
+    }
+    return series;
+  }, [expression, result.table]);
+
+  return <Plot
+    data={data}
+    layout={{
+      autosize: true,
+      margin: { l: 0, r: 0, t: 0, b: 0 },
+      paper_bgcolor: "#ffffff",
+      plot_bgcolor: "#ffffff",
+      scene: {
+        xaxis: { title: { text: "x" }, backgroundcolor: "#f8fafc" },
+        yaxis: { title: { text: "y" }, backgroundcolor: "#f8fafc" },
+        zaxis: { title: { text: "f(x,y)" }, backgroundcolor: "#f8fafc" },
+        camera: { eye: { x: 1.4, y: 1.4, z: 1.2 } },
+      },
+    }}
+    config={{ responsive: true, displaylogo: false }}
+    useResizeHandler
+    style={{ width: "100%", height: "430px" }}
+  />;
+}
+
 export function Charts({ result, expression, method }: { result: NumericalResponse; expression: string; method?: string }) {
   const functionLatex = latexFunction(expression);
   const lastIndex = result.x_history.length - 1;
@@ -266,9 +317,9 @@ export function Charts({ result, expression, method }: { result: NumericalRespon
 
   return <div className="charts">
     <div className="card">
-      <h2>{method === "random-search" ? "Superficie 3D" : "Función y aproximaciones"}</h2>
-      <p className="chart-hint">{method === "random-search" ? "Superficie objetivo y mejor punto encontrado." : "Arrastra para desplazar y usa la rueda para acercar o alejar."}</p>
-      {method === "random-search" ? <Desmos3DPanel expression={expression} point={random3dPoint} /> : <DesmosPanel expressions={functionExpressions} viewport={view} />}
+      <h2>{method === "random-search" || method === "lagrange-multipliers" ? "Superficie 3D" : "Función y aproximaciones"}</h2>
+      <p className="chart-hint">{method === "lagrange-multipliers" ? "Superficie objetivo y puntos críticos encontrados (máximos en rojo, mínimos en azul)." : method === "random-search" ? "Superficie objetivo y mejor punto encontrado." : "Arrastra para desplazar y usa la rueda para acercar o alejar."}</p>
+      {method === "lagrange-multipliers" ? <LagrangePanel result={result} expression={expression} /> : method === "random-search" ? <Desmos3DPanel expression={expression} point={random3dPoint} /> : <DesmosPanel expressions={functionExpressions} viewport={view} />}
     </div>
     <div className="card"><h2>Caída del error</h2><p className="chart-hint">El error absoluto debe descender hacia cero a medida que avanza el método.</p><Plot
       data={[{
