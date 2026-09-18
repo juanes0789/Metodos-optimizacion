@@ -49,7 +49,7 @@ export default function Instructions() {
               <div><code>**</code><span>Potencias · no uses <code>^</code></span></div>
               <div><code>2*x</code> <span className="arrow">→</span> <code>2x</code><span>La multiplicación implícita también funciona</span></div>
             </div>
-            <div className="function-list"><span>Funciones disponibles</span><code>sin · sen · seno · cos · tan · exp · log · ln · sqrt · abs</code></div>
+            <div className="function-list"><span>Funciones disponibles</span><code>sin · sen · seno · cos · tan · sinh · senh · cosh · tanh · exp · log · ln · sqrt · abs</code></div>
           </article>
           <article className="card example-card">
             <div className="card-heading"><span className="icon-badge accent">⌁</span><div><h3>Ejemplos listos para probar</h3><p>Copia una expresión y ejecútala en el laboratorio.</p></div></div>

@@ -90,12 +90,13 @@ function loadDesmos(): Promise<DesmosApi> {
 
 function latexFunction(expression: string): string {
   return expression
+    .replace(/^\s*(?:f\s*\(\s*x\s*\)|f\s*x)\s*=\s*/i, "")
     .replace(/([xy])([2-9]\d*)\b/gi, "$1^$2")
     .replace(/\bseno?\s*\(/gi, "sin(")
     .replace(/\bsen\s*\(/gi, "sin(")
     .replace(/\bln\s*\(/gi, "log(")
     .replace(/\*\*/g, "^")
-    .replace(/\b(sin|cos|tan|log|sqrt|exp)\s*\(/gi, "\\$1(")
+    .replace(/\b(sin|cos|tan|sinh|cosh|tanh|log|sqrt|exp)\s*\(/gi, "\\$1(")
     .replace(/\*/g, "\\cdot ");
 }
 
@@ -151,6 +152,7 @@ function DesmosPanel({ expressions, viewport }: Readonly<DesmosPanelProps>) {
 
 function normalizeJsExpression(expression: string): string {
   let next = expression.trim();
+  next = next.replace(/^\s*(?:f\s*\(\s*x\s*\)|f\s*x)\s*=\s*/i, "");
   next = next.replace(/([xy])([2-9]\d*)\b/gi, "$1**$2");
   next = next.replace(/\^/g, "**");
   next = next.replace(/\b(?:sen|seno)\s*\(/gi, "sin(");
@@ -170,7 +172,7 @@ function evaluate2D(expression: string, x: number, y: number): number {
   const fn = new Function(
     "x",
     "y",
-    `const { sin, cos, tan, asin, acos, atan, sqrt, abs, log, exp, min, max, pow, PI, E } = Math; return (${normalized});`
+    `const { sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, sqrt, abs, log, exp, min, max, pow, PI, E } = Math; return (${normalized});`
   );
   const value = fn(x, y);
   if (!Number.isFinite(value)) return NaN;
