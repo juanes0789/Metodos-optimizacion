@@ -96,7 +96,7 @@ def quadratic(fn: Fn,x0:float,x1:float,x2:float,tol:float,max_iter:int,maximize:
         previous=x
     return _result(False,"Se alcanzó el máximo de iteraciones",x,fx,errors,hist,table)
 
-def newton_opt(fn: Fn, derivative: Fn, second: Fn,x:float,tol:float,max_iter:int)->NumericalResult:
+def newton_opt(fn: Fn, derivative: Fn, second: Fn,x:float,tol:float,max_iter:int,maximize: bool = False)->NumericalResult:
     errors=[];hist=[];table=[]
     for i in range(1,max_iter+1):
         fx, d, dd=_f(fn,x),_f(derivative,x),_f(second,x)
@@ -104,7 +104,10 @@ def newton_opt(fn: Fn, derivative: Fn, second: Fn,x:float,tol:float,max_iter:int
         nxt=x-d/dd;err=abs(nxt-x);errors.append(err);hist.append(nxt)
         table.append({"iteration":i,"xi":x,"fx":fx,"derivative":d,"second_derivative":dd,"x_next":nxt,"error":err})
         x=nxt
-        if err<=tol:return _result(True,"Convergencia alcanzada",x,_f(fn,x),errors,hist,table)
+        if err<=tol:
+            kind = "máximo" if _f(second, x) < 0 else "mínimo"
+            requested = "máximo" if maximize else "mínimo"
+            return _result(True, f"Convergencia alcanzada ({kind}; objetivo: {requested})", x, _f(fn,x), errors, hist, table)
     return _result(False,"Se alcanzó el máximo de iteraciones",x,_f(fn,x),errors,hist,table)
 
 def newton_root(fn:Fn,derivative:Fn,x:float,tol:float,max_iter:int)->NumericalResult:
@@ -170,6 +173,6 @@ def run_method(name:str, fn:Fn, params:dict[str,float|int], derivative:Fn|None=N
         if "y_min" in params and "y_max" in params:
             return random_search_2d(fn, float(params.get("x_min", params.get("a", 0))), float(params.get("x_max", params.get("b", 1))), float(params["y_min"]), float(params["y_max"]), int(params["max_iterations"]), maximize=bool(params.get("maximize", 0)), seed=int(params.get("seed", 42)))
         return random_search(fn, float(params.get("a", params.get("x_min", 0))), float(params.get("b", params.get("x_max", 1))), int(params["max_iterations"]), maximize=bool(params.get("maximize", 0)), seed=int(params.get("seed", 42)))
-    methods={"bisection":lambda:bisection(fn,params["a"],params["b"],params["tolerance"],params["max_iterations"]),"false-position":lambda:false_position(fn,params["a"],params["b"],params["tolerance"],params["max_iterations"]),"golden-section":lambda:golden(fn,params["a"],params["b"],params["tolerance"],params["max_iterations"],bool(params.get("maximize",0))),"quadratic-interpolation":lambda:quadratic(fn,params["x0"],params["x1"],params["x2"],params["tolerance"],params["max_iterations"],bool(params.get("maximize",0))),"newton-optimization":lambda:newton_opt(fn,derivative,second,params["x0"],params["tolerance"],params["max_iterations"]),"newton-raphson":lambda:newton_root(fn,derivative,params["x0"],params["tolerance"],params["max_iterations"])}
+    methods={"bisection":lambda:bisection(fn,params["a"],params["b"],params["tolerance"],params["max_iterations"]),"false-position":lambda:false_position(fn,params["a"],params["b"],params["tolerance"],params["max_iterations"]),"golden-section":lambda:golden(fn,params["a"],params["b"],params["tolerance"],params["max_iterations"],bool(params.get("maximize",0))),"quadratic-interpolation":lambda:quadratic(fn,params["x0"],params["x1"],params["x2"],params["tolerance"],params["max_iterations"],bool(params.get("maximize",0))),"newton-optimization":lambda:newton_opt(fn,derivative,second,params["x0"],params["tolerance"],params["max_iterations"],bool(params.get("maximize",0))),"newton-raphson":lambda:newton_root(fn,derivative,params["x0"],params["tolerance"],params["max_iterations"])}
     if name not in methods: raise ValueError("Método no soportado")
     return methods[name]()
